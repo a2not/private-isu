@@ -8,7 +8,7 @@ services:
       - ./etc/nginx/conf.d:/etc/nginx/conf.d
       - ./public:/public
     ports:
-      - "80:80"
+      - "81:80"
     networks:
       - my_network
 
