@@ -16,6 +16,3 @@ portal/tmp
 !/portal/log/.keep
 /portal/tmp
 .vagrant
-
-# Ignore logs
-webapp/logs/
