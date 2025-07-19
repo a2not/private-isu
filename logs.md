@@ -48,3 +48,9 @@ ed12ceb19efd   private-isu-nginx-1       0.00%     4.988MiB / 15.58GiB   0.03%  
 a270dd1e32cd   benchmarker               0.00%     6.941MiB / 15.58GiB   0.04%     0B / 0B          0B / 0B          7
 ```
 
+## logging + profiling to see what's going on
+
+- nginx json access log
+- mysql log. + slow query log
+- golang app with pprof
+
