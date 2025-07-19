@@ -4,7 +4,7 @@
 
 - use golang
 - expose port 81 for nginx cuz it conflicted with something else I'm unsure of. 81 worked so whatever.
-- prepared bench command in benchmarker/Makefile
+- prepared bench command in [benchmarker/Makefile](./benchmarker/Makefile)
 
 run first bench
 
