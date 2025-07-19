@@ -4,7 +4,6 @@ bin/benchmarker: *.go checker/*.go go.mod go.sum
 	go build -o bin/benchmarker
 
 bench:
-	sudo rm -rf ../webapp/logs/*
 	docker rm benchmarker
 	docker run \
 		--name benchmarker \
