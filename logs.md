@@ -1,6 +1,6 @@
 # log
 
-## first bench
+## first bench (score: 0)
 
 - use golang
 - expose port 81 for nginx cuz it conflicted with something else I'm unsure of. 81 worked so whatever.
@@ -48,13 +48,13 @@ ed12ceb19efd   private-isu-nginx-1       0.00%     4.988MiB / 15.58GiB   0.03%  
 a270dd1e32cd   benchmarker               0.00%     6.941MiB / 15.58GiB   0.04%     0B / 0B          0B / 0B          7
 ```
 
-## logging + profiling to see what's going on
+## logging + profiling to see what's going on (score: 0)
 
 - nginx json access log
 - mysql log. + slow query log
 - golang app with pprof
 
-## analyze MySQL slow query w/ pt-query-digest
+## analyze MySQL slow query w/ pt-query-digest (score: 29414)
 
 ```
 make pt-query-digest
@@ -145,12 +145,11 @@ To be precise, it only looks for scripts only when `/var/lib/mysql` does not exi
 
 So we need to delete the volume and start over again which is a bit time consuming, but it works so I just put the sql script under `./webapp/sql` since it's already mounted to `/docker-entrypoint-initdb.d`.
 
-<TODO> Find a better way to run shell/sql scripts against MySQL container on the fly.
+(TODO: Find a better way to run shell/sql scripts against MySQL container on the fly.)
 
 ```bash
 cd webapp
-docker compose down
-docker volume rm private-isu_mysql
+docker compose down --volume
 docker compose up # it takes 2~3 mins to load dump.sql.bz2
 ```
 
