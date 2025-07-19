@@ -32,7 +32,6 @@ services:
       - my_network
     volumes:
       - ./public:/home/public
-      - ./logs/mysql:/var/log/mysql
     init: true
     deploy:
       resources:
@@ -49,6 +48,7 @@ services:
     volumes:
       - mysql:/var/lib/mysql
       - ./sql:/docker-entrypoint-initdb.d
+      - ./logs/mysql:/var/log/mysql
     ports:
       - "3306:3306"
     networks:
