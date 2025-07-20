@@ -157,7 +157,7 @@ docker compose down --volume
 docker compose up # it takes 2~3 mins to load dump.sql.bz2
 ```
 
-## introduce file cache for image serving (score: 90506)
+## introduce file cache for image serving (score: 54496)
 
 Let us analyze nginx access log w/ alp
 
@@ -187,7 +187,9 @@ in `./webapp/alp_analyzed_access.log`
 +-------+-----+-------+-----+-----+-----+--------+-----------------------------+-------+-------+---------+-------+-------+-------+-------+--------+-----------+-------------+----------------+------------+
 ```
 
-static file serving is kinda slow. Let's use nginx to serve static files.
+`GET /` is the slowest but I'll keep it as is for now since it seems like it requires the understanding of the application logic.
+
+Besides that, static file serving is kinda slow. Let's use nginx to serve static files.
 
 After implementing some image caching mechanism in application (details down below), the sum of the execution time took for `/image/*` went from 153.097s to 15.243s. Not bad.
 
@@ -228,4 +230,20 @@ bench
   "messages": []
 }
 ```
+
+## resolve N+1 problem on `GET /` (score: ???)
+
+Next up is `GET /` because of the previous access log analysis. It takes more time than unimproved image serving does.
+
+```
++-------+-----+-------+-----+-----+-----+--------+-----------------------------+-------+-------+---------+-------+-------+-------+-------+--------+-----------+-------------+----------------+------------+
+| COUNT | 1XX |  2XX  | 3XX | 4XX | 5XX | METHOD |             URI             |  MIN  |  MAX  |   SUM   |  AVG  |  P90  |  P95  |  P99  | STDDEV | MIN(BODY) |  MAX(BODY)  |   SUM(BODY)    | AVG(BODY)  |
++-------+-----+-------+-----+-----+-----+--------+-----------------------------+-------+-------+---------+-------+-------+-------+-------+--------+-----------+-------------+----------------+------------+
+| 984   | 0   | 984   | 0   | 0   | 0   | GET    | /                           | 0.045 | 0.461 | 189.478 | 0.193 | 0.268 | 0.301 | 0.359 | 0.058  | 4007.000  | 36356.000   | 19480777.000   | 19797.538  |
+| 14535 | 0   | 14535 | 0   | 0   | 0   | GET    | /image/[0-9]+.(jpg|png|gif) | 0.000 | 0.128 | 153.097 | 0.011 | 0.023 | 0.030 | 0.047 | 0.010  | 34400.000 | 1134143.000 | 4372291853.000 | 300811.273 |
++-------+-----+------+-------+-----+-----+--------+-----------------------------+-------+-------+---------+-------+-------+-------+-------+--------+-----------+-------------+---------------+-----------+
+```
+
+In `getIndex()` handler, the only thing that can be optimized is `makePost()`. Other code looks normal.
+
 
