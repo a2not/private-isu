@@ -4,8 +4,8 @@ bin/benchmarker: *.go checker/*.go go.mod go.sum
 	go build -o bin/benchmarker
 
 bench:
-	docker rm benchmarker
-	docker run \
+	@docker rm benchmarker
+	@docker run \
 		--name benchmarker \
 		--network host \
 		--add-host host.docker.internal:host-gateway \
