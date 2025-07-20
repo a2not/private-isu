@@ -32,6 +32,8 @@ services:
       - my_network
     volumes:
       - ./public:/home/public
+    ports:
+      - "6060:6060"
     init: true
     deploy:
       resources:

@@ -74,6 +74,9 @@ func init() {
 	// profiling
 	runtime.SetBlockProfileRate(1)
 	runtime.SetMutexProfileFraction(1)
+	go func() {
+		log.Println(http.ListenAndServe("0.0.0.0:6060", nil))
+	}()
 
 	memdAddr := os.Getenv("ISUCONP_MEMCACHED_ADDRESS")
 	if memdAddr == "" {
