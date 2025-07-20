@@ -1,3 +1,16 @@
+start:
+	docker compose up --build
+
+start-from-scratch:
+	docker compose down --volumes --remove-orphans
+	docker compose up --build
+
+clear-log:
+	sudo chmod 777 -R ./logs
+	> ./logs/mysql/slow.log
+	> ./logs/nginx/access.log
+	> ./logs/nginx/error.log
+
 pt-query-digest:
 	cat ./logs/mysql/slow.log | docker run -i --rm matsuu/pt-query-digest > analyzed-slow.log
 
