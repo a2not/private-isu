@@ -57,7 +57,7 @@ type Post struct {
 	CreatedAt    time.Time `db:"created_at"`
 	CommentCount int
 	Comments     []Comment
-	User         User
+	User         User `db:"user"`
 	CSRFToken    string
 }
 
@@ -182,16 +182,53 @@ func getFlash(w http.ResponseWriter, r *http.Request, key string) string {
 	}
 }
 
-func makePosts(results []Post, csrfToken string, allComments bool) ([]Post, error) {
-	var posts []Post
+func makePosts(csrfToken string, allComments bool, pid *int, user *User, t *time.Time) ([]Post, error) {
+	// TODO: optimize
+	posts := make([]Post, 0, postsPerPage)
+	{
+		query := "SELECT"
+		query += "  p.id AS `id`"
+		query += ", p.user_id AS `user_id`"
+		query += ", p.body AS `body`"
+		query += ", p.mime AS `mime`"
+		query += ", p.created_at AS `created_at`"
 
-	for _, p := range results {
+		// NOTE: ignored user fields
+		// Passhash    string    `db:"passhash"`
+		// DelFlg      int       `db:"del_flg"`
+		query += ", u.id AS `user.id`"
+		query += ", u.account_name AS `user.account_name`"
+		query += ", u.created_at AS `user.created_at`"
+		query += ", u.authority AS `user.authority`"
+
+		query += " FROM `posts` AS p JOIN `users` AS u ON p.user_id = u.id"
+		query += " WHERE u.del_flg = 0"
+		queryArgs := make([]any, 0, 2)
+		if user != nil {
+			query += " AND p.user_id = ?"
+			queryArgs = append(queryArgs, user.ID)
+		} else if t != nil {
+			query += " AND p.created_at <= ?"
+			queryArgs = append(queryArgs, t.Format(ISO8601Format))
+		} else if pid != nil {
+			query += " AND p.id = ?"
+			queryArgs = append(queryArgs, *pid)
+		}
+		query += " ORDER BY p.created_at DESC"
+		query += " LIMIT ?"
+		queryArgs = append(queryArgs, postsPerPage)
+		if err := db.Select(&posts, query, queryArgs...); err != nil {
+			return nil, err
+		}
+	}
+
+	for i, p := range posts {
 		err := db.Get(&p.CommentCount, "SELECT COUNT(*) AS `count` FROM `comments` WHERE `post_id` = ?", p.ID)
 		if err != nil {
 			return nil, err
 		}
 
-		query := "SELECT * FROM `comments` WHERE `post_id` = ? ORDER BY `created_at` DESC"
+		query := "SELECT * FROM `comments` WHERE `post_id` = ? ORDER BY `created_at` ASC"
 		if !allComments {
 			query += " LIMIT 3"
 		}
@@ -207,27 +244,11 @@ func makePosts(results []Post, csrfToken string, allComments bool) ([]Post, erro
 				return nil, err
 			}
 		}
-
-		// reverse
-		for i, j := 0, len(comments)-1; i < j; i, j = i+1, j-1 {
-			comments[i], comments[j] = comments[j], comments[i]
-		}
-
 		p.Comments = comments
-
-		err = db.Get(&p.User, "SELECT * FROM `users` WHERE `id` = ?", p.UserID)
-		if err != nil {
-			return nil, err
-		}
 
 		p.CSRFToken = csrfToken
 
-		if p.User.DelFlg == 0 {
-			posts = append(posts, p)
-		}
-		if len(posts) >= postsPerPage {
-			break
-		}
+		posts[i] = p
 	}
 
 	return posts, nil
@@ -395,15 +416,7 @@ func getLogout(w http.ResponseWriter, r *http.Request) {
 func getIndex(w http.ResponseWriter, r *http.Request) {
 	me := getSessionUser(r)
 
-	results := []Post{}
-
-	err := db.Select(&results, "SELECT `id`, `user_id`, `body`, `mime`, `created_at` FROM `posts` ORDER BY `created_at` DESC")
-	if err != nil {
-		log.Print(err)
-		return
-	}
-
-	posts, err := makePosts(results, getCSRFToken(r), false)
+	posts, err := makePosts(getCSRFToken(r), false, nil, nil, nil)
 	if err != nil {
 		log.Print(err)
 		return
@@ -441,15 +454,7 @@ func getAccountName(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	results := []Post{}
-
-	err = db.Select(&results, "SELECT `id`, `user_id`, `body`, `mime`, `created_at` FROM `posts` WHERE `user_id` = ? ORDER BY `created_at` DESC", user.ID)
-	if err != nil {
-		log.Print(err)
-		return
-	}
-
-	posts, err := makePosts(results, getCSRFToken(r), false)
+	posts, err := makePosts(getCSRFToken(r), false, nil, &user, nil)
 	if err != nil {
 		log.Print(err)
 		return
@@ -530,14 +535,7 @@ func getPosts(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	results := []Post{}
-	err = db.Select(&results, "SELECT `id`, `user_id`, `body`, `mime`, `created_at` FROM `posts` WHERE `created_at` <= ? ORDER BY `created_at` DESC", t.Format(ISO8601Format))
-	if err != nil {
-		log.Print(err)
-		return
-	}
-
-	posts, err := makePosts(results, getCSRFToken(r), false)
+	posts, err := makePosts(getCSRFToken(r), false, nil, nil, &t)
 	if err != nil {
 		log.Print(err)
 		return
@@ -566,14 +564,7 @@ func getPostsID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	results := []Post{}
-	err = db.Select(&results, "SELECT * FROM `posts` WHERE `id` = ?", pid)
-	if err != nil {
-		log.Print(err)
-		return
-	}
-
-	posts, err := makePosts(results, getCSRFToken(r), true)
+	posts, err := makePosts(getCSRFToken(r), true, &pid, nil, nil)
 	if err != nil {
 		log.Print(err)
 		return
