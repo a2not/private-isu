@@ -625,15 +625,19 @@ func postIndex(w http.ResponseWriter, r *http.Request) {
 	}
 
 	mime := ""
+	ext := ""
 	if file != nil {
 		// 投稿のContent-Typeからファイルのタイプを決定する
 		contentType := header.Header["Content-Type"][0]
 		if strings.Contains(contentType, "jpeg") {
 			mime = "image/jpeg"
+			ext = "jpg"
 		} else if strings.Contains(contentType, "png") {
 			mime = "image/png"
+			ext = "png"
 		} else if strings.Contains(contentType, "gif") {
 			mime = "image/gif"
+			ext = "gif"
 		} else {
 			session := getSession(r)
 			session.Values["notice"] = "投稿できる画像形式はjpgとpngとgifだけです"
@@ -664,7 +668,7 @@ func postIndex(w http.ResponseWriter, r *http.Request) {
 		query,
 		me.ID,
 		mime,
-		filedata,
+		[]byte(""),
 		r.FormValue("body"),
 	)
 	if err != nil {
@@ -678,6 +682,10 @@ func postIndex(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// NOTE: write to file as cache
+	// nginx would try the file first
+	writeImageFileForCache(pid, ext, filedata)
+
 	http.Redirect(w, r, "/posts/"+strconv.FormatInt(pid, 10), http.StatusFound)
 }
 
@@ -690,7 +698,7 @@ func getImage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	post := Post{}
-	err = db.Get(&post, "SELECT * FROM `posts` WHERE `id` = ?", pid)
+	err = db.Get(&post, "SELECT mime FROM `posts` WHERE `id` = ?", pid)
 	if err != nil {
 		log.Print(err)
 		return
@@ -702,7 +710,17 @@ func getImage(w http.ResponseWriter, r *http.Request) {
 		ext == "png" && post.Mime == "image/png" ||
 		ext == "gif" && post.Mime == "image/gif" {
 		w.Header().Set("Content-Type", post.Mime)
-		_, err := w.Write(post.Imgdata)
+
+		if err = db.Get(&post, "SELECT imgdata FROM posts WHERE id = ?", pid); err != nil {
+			log.Printf("getting imgdata of pid=%d failed: %v", pid, err)
+			return
+		}
+		// NOTE: write to file as cache
+		// nginx would try the file first
+		writeImageFileForCache(int64(pid), ext, post.Imgdata)
+
+		// write the response
+		_, err = w.Write(post.Imgdata)
 		if err != nil {
 			log.Print(err)
 			return
@@ -711,6 +729,26 @@ func getImage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusNotFound)
+}
+
+// writeImageFileForCache would not return an error, but log it
+func writeImageFileForCache(pid int64, ext string, imgdata []byte) {
+	f, err := os.Create(fmt.Sprintf("../public/img/%d.%s", pid, ext))
+	if err != nil {
+		log.Printf("creating file for img/%d.%s failed: %v", pid, ext, err)
+		return
+	}
+	defer func() {
+		if err := f.Close(); err != nil {
+			log.Printf("f.Close() error: %v", err)
+		}
+	}()
+
+	_, err = f.Write(imgdata)
+	if err != nil {
+		log.Printf("write file for img/%d.%s failed: %v", pid, ext, err)
+		return
+	}
 }
 
 func postComment(w http.ResponseWriter, r *http.Request) {
@@ -803,6 +841,7 @@ func postAdminBanned(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
+	log.Print("main() started")
 	host := os.Getenv("ISUCONP_DB_HOST")
 	if host == "" {
 		host = "localhost"

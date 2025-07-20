@@ -1,3 +1,6 @@
 logs/
 analyzed-slow.log
 alp_analyzed_access.log
+public/img/*.png
+public/img/*.jpg
+public/img/*.gif
